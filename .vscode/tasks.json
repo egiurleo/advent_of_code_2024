@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Advent of Code: Scaffold Day",
+      "type": "shell",
+      "command": "bundle exec aoc_cli scaffold ${input:day}",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+      },
+    }
+  ],
+  "inputs": [
+    {
+      "id": "day",
+      "type": "promptString",
+      "description": "Enter a number between 1 and 24"
+    }
+  ]
+
+}
