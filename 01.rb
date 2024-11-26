@@ -1,4 +1,6 @@
-require "sorbet-runtime"
+# frozen_string_literal: true
+
+require 'sorbet-runtime'
 
 module Day01
   class << self
