@@ -37,20 +37,18 @@ module Day02
 
     sig { returns(T::Boolean) }
     def all_increasing?
-      @levels.sort == @levels
+      @levels.each_cons(2).all? { |level1, level2| T.must(level1) < T.must(level2) }
     end
 
     sig { returns(T::Boolean) }
     def all_decreasing?
-      @levels.sort.reverse == @levels
+      @levels.each_cons(2).all? { |level1, level2| T.must(level1) > T.must(level2) }
     end
 
     sig { returns(T::Boolean) }
     def close_levels?
       @levels.each_cons(2).all? do |level1, level2|
-        next if level1.nil? || level2.nil?
-
-        diff = (level1 - level2).abs
+        diff = (T.must(level1) - T.must(level2)).abs
         diff >= 1 && diff <= 3
       end
     end
@@ -68,10 +66,7 @@ module Day02
 
     sig { returns(T::Array[Report]) }
     def modified_reports
-      (0...@levels.length).map do |idx|
-        new_levels = @levels.dup
-        new_levels.delete_at(idx)
-
+      @levels.combination(@levels.length - 1).map do |new_levels|
         Report.new(new_levels)
       end
     end
