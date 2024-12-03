@@ -14,7 +14,7 @@ module Day03
 
     sig { params(input: T::Array[String]).returns(Integer) }
     def part_two(input)
-      raise NotImplementedError
+      Program.new(input.join).run.sum
     end
   end
 
@@ -26,15 +26,20 @@ module Day03
       @operations = T.let([], T::Array[Operation])
       @program_state = T.let(ProgramState.new, ProgramState)
 
-      input.scan(Multiply::FORMAT).map do |op_string|
+      input.scan(/#{Multiply::FORMAT}|#{Conditional::FORMAT}/).each do |op_string|
         op_string = T.cast(op_string, String)
 
-        op_string = op_string.delete_prefix('mul(').delete_suffix(')')
-        val1, val2 = op_string.split(',')
+        if op_string.match?(Multiply::FORMAT)
+          op_string = op_string.delete_prefix('mul(').delete_suffix(')')
+          val1, val2 = op_string.split(',')
 
-        raise ArgumentError if val1.nil? || val2.nil?
+          raise ArgumentError if val1.nil? || val2.nil?
 
-        @operations << Multiply.new(val1.to_i, val2.to_i)
+          @operations << Multiply.new(val1.to_i, val2.to_i)
+        elsif op_string.match?(Conditional::FORMAT)
+          op_string = op_string.delete_suffix('()')
+          @operations << Conditional.new(op_string)
+        end
       end
     end
 
@@ -98,9 +103,6 @@ module Day03
 
     FORMAT = T.let(/mul\(\d{1,3},\d{1,3}\)/, Regexp)
 
-    sig { returns(Integer) }
-    attr_reader :result
-
     sig { params(val1: Integer, val2: Integer).void }
     def initialize(val1, val2)
       super()
@@ -112,7 +114,34 @@ module Day03
 
     sig { override.params(state: ProgramState).void }
     def perform(state)
-      state.add(@result)
+      state.add(@result) if state.mult_allowed?
+    end
+  end
+
+  class Conditional < Operation
+    extend T::Sig
+
+    FORMAT = T.let(/do\(\)|don't\(\)/, Regexp)
+
+    DO = T.let('do', String)
+    DONT = T.let("don't", String)
+
+    sig { params(instruction: String).void }
+    def initialize(instruction)
+      super()
+
+      raise ArgumentError unless [DO, DONT].include?(instruction)
+
+      @instruction = T.let(instruction, String)
+    end
+
+    sig { override.params(state: ProgramState).void }
+    def perform(state)
+      if @instruction == DO
+        state.allow_mult
+      elsif @instruction == DONT
+        state.disallow_mult
+      end
     end
   end
 end
