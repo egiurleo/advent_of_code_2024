@@ -4,7 +4,14 @@ GEM
     advent_of_code_cli (0.1.7)
       thor (>= 1.2.0)
     ast (2.4.2)
+    debug (1.9.2)
+      irb (~> 1.10)
+      reline (>= 0.3.8)
     erubi (1.13.0)
+    io-console (0.7.2)
+    irb (1.14.1)
+      rdoc (>= 4.0.0)
+      reline (>= 0.4.2)
     json (2.8.2)
     language_server-protocol (3.17.0.3)
     netrc (0.11.0)
@@ -13,12 +20,18 @@ GEM
       ast (~> 2.4.1)
       racc
     prism (1.2.0)
+    psych (5.2.0)
+      stringio
     racc (1.8.1)
     rainbow (3.1.1)
     rbi (0.2.1)
       prism (~> 1.0)
       sorbet-runtime (>= 0.5.9204)
+    rdoc (6.8.1)
+      psych (>= 4.0.0)
     regexp_parser (2.9.2)
+    reline (0.5.12)
+      io-console (~> 0.5)
     rubocop (1.69.0)
       json (~> 2.3)
       language_server-protocol (>= 3.17.0)
@@ -46,6 +59,7 @@ GEM
       prism (>= 0.28.0)
       sorbet-static-and-runtime (>= 0.5.10187)
       thor (>= 0.19.2)
+    stringio (3.1.2)
     tapioca (0.16.4)
       bundler (>= 2.2.25)
       netrc (>= 0.11.0)
@@ -70,6 +84,7 @@ PLATFORMS
 
 DEPENDENCIES
   advent_of_code_cli
+  debug
   rubocop
   rubocop-sorbet
   sorbet-static-and-runtime
