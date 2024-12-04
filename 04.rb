@@ -9,29 +9,19 @@ module Day04
 
     sig { params(input: T::Array[String]).returns(Integer) }
     def part_one(input)
+      count = 0
       word = 'XMAS'
 
-      deg0 = Matrix.new(input.map(&:chars))
-      deg45 = deg0.rotate45
-      deg90 = deg0.rotate90
-      deg135 = deg90.rotate45
-      deg180 = deg90.rotate90
-      deg225 = deg180.rotate45
-      deg360 = deg180.rotate90
-      deg405 = deg360.rotate45
+      matrix = Matrix.new(input.map(&:chars))
 
-      directions = [deg0, deg45, deg90, deg135, deg180, deg225, deg360, deg405]
+      4.times do
+        count += matrix.count(word)
+        count += matrix.rotate45.count(word)
 
-      directions.map { |dir| dir.count(word) }.reduce(0, &:+)
+        matrix = matrix.rotate90
+      end
 
-      # 3.times do
-      #   count += matrix.count(word)
-      #   count += matrix.rotate45.count(word)
-
-      #   matrix = matrix.rotate90
-      # end
-
-      # count
+      count
     end
 
     sig { params(input: T::Array[String]).returns(Integer) }
