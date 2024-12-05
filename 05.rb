@@ -12,16 +12,11 @@ module Day05
     def part_one(input)
       rules, solutions = rules_and_solutions(input)
 
-      graph = Graph.new
-      rules.each do |rule|
-        node1, node2 = rule.split('|')
-        raise if node1.nil? || node2.nil?
-
-        graph.add(node1, node2)
-      end
+      ruleset = RuleSet.new(rules)
 
       solutions.map do |solution|
-        graph.valid_solution?(solution) ? solution[solution.length / 2].to_i : 0
+        graph = SolutionGraph.new(solution, ruleset)
+        graph.valid? ? graph.middle : 0
       end.sum
     end
 
@@ -32,10 +27,10 @@ module Day05
 
     private
 
-    sig { params(input: T::Array[String]).returns([T::Array[String], T::Array[T::Array[String]]]) }
+    sig { params(input: T::Array[String]).returns([T::Array[[Integer, Integer]], T::Array[T::Array[Integer]]]) }
     def rules_and_solutions(input)
-      rules = T.let([], T::Array[String])
-      solutions = T.let([], T::Array[T::Array[String]])
+      rules = T.let([], T::Array[[Integer, Integer]])
+      solutions = T.let([], T::Array[T::Array[Integer]])
 
       parsing_solutions = T.let(false, T::Boolean)
 
@@ -45,82 +40,64 @@ module Day05
           next
         end
 
-        parsing_solutions ? solutions << line.split(',') : rules << line
+        parsing_solutions ? solutions << parse_solution(line) : rules << parse_rule(line)
       end
 
       [rules, solutions]
     end
+
+    sig { params(input: String).returns(T::Array[Integer]) }
+    def parse_solution(input)
+      input.split(',').map(&:to_i)
+    end
+
+    sig { params(input: String).returns(Rule) }
+    def parse_rule(input)
+      n1, n2 = input.split('|').map(&:to_i)
+      raise if n1.nil? || n2.nil?
+
+      [n1, n2]
+    end
   end
 
-  class Graph
+  Rule = T.type_alias { [Integer, Integer] }
+
+  class RuleSet
     extend T::Sig
 
-    sig { void }
-    def initialize
-      @nodes = T.let({}, T::Hash[String, Node])
-      # mapping of nodes to all other nodes that must come before them
-      @edges = T.let({}, T::Hash[Node, T::Array[Node]])
+    sig { params(rules: T::Array[Rule]).void }
+    def initialize(rules)
+      @rules_hash = T.let({}, T::Hash[Rule, TrueClass])
+      rules.each { |rule| @rules_hash[rule] = true }
     end
 
-    sig { params(node1_name: String, node2_name: String).void }
-    def add(node1_name, node2_name)
-      # node1 must come before node2
+    sig { params(nodes: T::Array[Integer]).returns(T::Array[Rule]) }
+    def rules_for(nodes)
+      rules = []
 
-      node1 = node(node1_name)
-      node2 = node(node2_name)
+      nodes.combination(2) do |node1, node2|
+        raise if node1.nil? || node2.nil?
 
-      existing_edges = @edges[node2] ||= []
-      return if existing_edges.include?(node1)
-
-      existing_edges << node1
-    end
-
-    sig { params(solution: T::Array[String]).returns(T::Boolean) }
-    def valid_solution?(solution)
-      solution_hash = solution.each_with_object({}) do |node_name, h|
-        h[node_name] = true
-      end
-
-      valid_solution = solution.all? do |node_name|
-        # binding.b if solution == %w[97 13 75 29 47]
-
-        node = @nodes[node_name]
-        return false if node.nil?
-
-        node.visit
-        edges = @edges[node] || []
-
-        edges.empty? || edges.all? do |edge|
-          edge.visited? || !solution_hash.key?(edge.name)
+        if @rules_hash.key?([node1, node2])
+          rules << [node1, node2]
+        elsif @rules_hash.key?([node2, node1])
+          rules << [node2, node1]
         end
       end
 
-      reset_nodes
-      valid_solution
-    end
-
-    private
-
-    sig { void }
-    def reset_nodes
-      @nodes.each_value(&:unvisit)
-    end
-
-    sig { params(name: String).returns(Node) }
-    def node(name)
-      @nodes[name] ||= Node.new(name)
+      rules
     end
   end
 
   class Node
     extend T::Sig
 
-    sig { returns(String) }
+    sig { returns(Integer) }
     attr_reader :name
 
-    sig { params(name: String).void }
+    sig { params(name: Integer).void }
     def initialize(name)
-      @name = T.let(name, String)
+      @name = T.let(name, Integer)
       @visited = T.let(false, T::Boolean)
     end
 
@@ -137,6 +114,68 @@ module Day05
     sig { void }
     def unvisit
       @visited = false
+    end
+  end
+
+  class SolutionGraph
+    extend T::Sig
+
+    sig { params(solution: T::Array[Integer], ruleset: RuleSet).void }
+    def initialize(solution, ruleset)
+      @ruleset = T.let(ruleset.rules_for(solution), T::Array[Rule])
+      @solution = T.let(solution, T::Array[Integer])
+      @nodes = T.let({}, T::Hash[Integer, Node])
+      # mapping of nodes to all other nodes that must come before them
+      @edges = T.let({}, T::Hash[Node, T::Array[Node]])
+
+      @ruleset.each do |rule|
+        add(*rule)
+      end
+
+      @valid = T.let(nil, T.nilable(T::Boolean))
+    end
+
+    sig { returns(T::Boolean) }
+    def valid?
+      return @valid unless @valid.nil?
+
+      @valid = @solution.all? do |node_name|
+        node = @nodes[node_name]
+        raise if node.nil?
+
+        node.visit
+        edges = @edges[node] || []
+
+        edges.empty? || edges.all?(&:visited?)
+      end
+    end
+
+    sig { returns(Integer) }
+    def middle
+      middle = @solution[@solution.length / 2]
+      raise if middle.nil?
+
+      middle
+    end
+
+    private
+
+    sig { params(node1_name: Integer, node2_name: Integer).void }
+    def add(node1_name, node2_name)
+      # node1 must come before node2
+
+      node1 = node(node1_name)
+      node2 = node(node2_name)
+
+      existing_edges = @edges[node2] ||= []
+      return if existing_edges.include?(node1)
+
+      existing_edges << node1
+    end
+
+    sig { params(name: Integer).returns(Node) }
+    def node(name)
+      @nodes[name] ||= Node.new(name)
     end
   end
 end
