@@ -22,7 +22,14 @@ module Day05
 
     sig { params(input: T::Array[String]).returns(Integer) }
     def part_two(input)
-      raise NotImplementedError
+      rules, solutions = rules_and_solutions(input)
+
+      ruleset = RuleSet.new(rules)
+
+      solutions.map do |solution|
+        graph = SolutionGraph.new(solution, ruleset)
+        graph.valid? ? 0 : graph.correct_solution.middle
+      end.sum
     end
 
     private
@@ -69,6 +76,11 @@ module Day05
     def initialize(rules)
       @rules_hash = T.let({}, T::Hash[Rule, TrueClass])
       rules.each { |rule| @rules_hash[rule] = true }
+    end
+
+    sig { returns(T::Array[Rule]) }
+    def rules
+      @rules_hash.keys
     end
 
     sig { params(nodes: T::Array[Integer]).returns(T::Array[Rule]) }
@@ -122,13 +134,16 @@ module Day05
 
     sig { params(solution: T::Array[Integer], ruleset: RuleSet).void }
     def initialize(solution, ruleset)
-      @ruleset = T.let(ruleset.rules_for(solution), T::Array[Rule])
+      @ruleset = T.let(RuleSet.new(ruleset.rules_for(solution)), RuleSet)
       @solution = T.let(solution, T::Array[Integer])
       @nodes = T.let({}, T::Hash[Integer, Node])
+
       # mapping of nodes to all other nodes that must come before them
+      @back_edges = T.let({}, T::Hash[Node, T::Array[Node]])
+      # mapping of nodes to all nodes that must come after them
       @edges = T.let({}, T::Hash[Node, T::Array[Node]])
 
-      @ruleset.each do |rule|
+      @ruleset.rules.each do |rule|
         add(*rule)
       end
 
@@ -144,10 +159,43 @@ module Day05
         raise if node.nil?
 
         node.visit
-        edges = @edges[node] || []
+        edges = @back_edges[node] || []
 
         edges.empty? || edges.all?(&:visited?)
       end
+
+      reset_graph
+      @valid
+    end
+
+    sig { returns(SolutionGraph) }
+    def correct_solution
+      return self if valid?
+
+      cs = []
+
+      curr_node = T.let(
+        @nodes.values.find do |node|
+          @back_edges[node].nil?
+        end,
+        T.nilable(Node)
+      )
+
+      until curr_node.nil?
+        cs << curr_node.name
+        curr_node.visit
+
+        edges = @edges[curr_node] || []
+
+        new_node = edges.find do |node|
+          back_edges = @back_edges[node] || []
+          !node.visited? & (back_edges.empty? || back_edges.all?(&:visited?))
+        end
+
+        curr_node = new_node
+      end
+
+      SolutionGraph.new(cs, @ruleset)
     end
 
     sig { returns(Integer) }
@@ -160,6 +208,11 @@ module Day05
 
     private
 
+    sig { void }
+    def reset_graph
+      @nodes.each_value(&:unvisit)
+    end
+
     sig { params(node1_name: Integer, node2_name: Integer).void }
     def add(node1_name, node2_name)
       # node1 must come before node2
@@ -167,10 +220,11 @@ module Day05
       node1 = node(node1_name)
       node2 = node(node2_name)
 
-      existing_edges = @edges[node2] ||= []
-      return if existing_edges.include?(node1)
+      existing_edges = @edges[node1] ||= []
+      existing_edges << node2 unless existing_edges.include?(node2)
 
-      existing_edges << node1
+      existing_back_edges = @back_edges[node2] ||= []
+      existing_back_edges << node1 unless existing_back_edges.include?(node1)
     end
 
     sig { params(name: Integer).returns(Node) }
