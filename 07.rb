@@ -17,7 +17,10 @@ module Day07
 
     sig { params(input: T::Array[String]).returns(Integer) }
     def part_two(input)
-      raise NotImplementedError
+      equations = parse_input(input)
+      equations.filter.with_index do |eq, _|
+        eq.valid_with_concat?
+      end.map(&:solution).sum
     end
 
     private
@@ -78,14 +81,40 @@ module Day07
 
       raise if test_value.nil?
 
-      # new_equation_sum = self.class.new_or_cached(@solution - test_value, new_test_values)
-      # new_equation_mult = self.class.new_or_cached(@solution / test_value, new_test_values)
       new_equation_sum = Equation.new(@solution - test_value, new_test_values)
       new_equation_mult = Equation.new(@solution / test_value, new_test_values)
 
       should_test_mult = (@solution % test_value).zero?
 
       @valid = new_equation_sum.valid? || (should_test_mult && new_equation_mult.valid?)
+    end
+
+    sig { returns(T::Boolean) }
+    def valid_with_concat?
+      return @valid unless @valid.nil?
+
+      if @test_values.length == 2
+        valid_through_addition = @test_values.sum == @solution
+        valid_through_multiplication = @test_values.reduce(&:*) == @solution
+        valid_through_concatination = @test_values.map(&:to_s).join.to_i == @solution
+
+        return @valid = valid_through_addition || valid_through_multiplication || valid_through_concatination
+      end
+
+      new_test_values = @test_values.dup
+      test_value = new_test_values.pop
+      raise if test_value.nil?
+
+      new_equation_sum = Equation.new(@solution - test_value, new_test_values)
+
+      should_test_mult = (@solution % test_value).zero?
+      new_equation_mult = Equation.new(@solution / test_value, new_test_values)
+
+      should_test_concat = @solution.to_s.end_with?(test_value.to_s)
+      new_equation_concat = Equation.new(@solution.to_s.delete_suffix(test_value.to_s).to_i, new_test_values)
+
+      @valid = new_equation_sum.valid_with_concat? || (should_test_mult && new_equation_mult.valid_with_concat?) ||
+               (should_test_concat && new_equation_concat.valid_with_concat?)
     end
   end
 end
