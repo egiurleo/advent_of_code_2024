@@ -15,19 +15,19 @@ module Day07
 
     sig { params(input: T::Array[String]).returns(Integer) }
     def part_two(input)
-      equations = parse_input(input)
-      equations.filter { |eq| eq.valid?(with_concat: true) }.map(&:solution).sum
+      equations = parse_input(input, check_concat: true)
+      equations.filter(&:valid?).map(&:solution).sum
     end
 
     private
 
-    sig { params(input: T::Array[String]).returns(T::Array[Equation]) }
-    def parse_input(input)
+    sig { params(input: T::Array[String], check_concat: T::Boolean).returns(T::Array[Equation]) }
+    def parse_input(input, check_concat: false)
       input.map do |line|
         solution_str, test_values_str = line.split(':')
         test_values = T.must(test_values_str).split.map(&:to_i)
 
-        Equation.new(solution_str.to_i, test_values)
+        Equation.new(solution_str.to_i, test_values, check_concat: check_concat)
       end
     end
   end
@@ -38,66 +38,96 @@ module Day07
     sig { returns(Integer) }
     attr_reader :solution
 
-    sig { params(solution: Integer, test_values: T::Array[Integer]).void }
-    def initialize(solution, test_values)
+    sig { params(solution: Integer, test_values: T::Array[Integer], check_concat: T::Boolean).void }
+    def initialize(solution, test_values, check_concat: false)
       @solution = T.let(solution, Integer)
       @test_values = T.let(test_values, T::Array[Integer])
+      @check_concat = T.let(check_concat, T::Boolean)
     end
 
-    sig { params(with_concat: T::Boolean).returns(T::Boolean) }
-    def valid?(with_concat: false)
-      valid_through_addition?(with_concat: with_concat) || valid_through_multiplication?(with_concat: with_concat) ||
-        valid_through_concatination?(with_concat: with_concat)
+    sig { returns(T::Boolean) }
+    def valid?
+      valid_through_addition? || valid_through_multiplication? || valid_through_concatination?
     end
 
     private
 
-    sig { params(with_concat: T::Boolean).returns(T::Boolean) }
-    def valid_through_addition?(with_concat: false)
+    sig { returns(T::Boolean) }
+    def valid_through_addition?
       return @test_values.sum == @solution if base_case?
 
-      new_test_values = @test_values.dup
-      test_value = new_test_values.pop
-
-      raise if test_value.nil?
-
-      addition_eq = Equation.new(@solution - test_value, new_test_values)
-      addition_eq.valid?(with_concat: with_concat)
+      addition_eq.valid?
     end
 
-    sig { params(with_concat: T::Boolean).returns(T::Boolean) }
-    def valid_through_multiplication?(with_concat: false)
+    sig { returns(T::Boolean) }
+    def valid_through_multiplication?
       return @test_values.reduce(1, &:*) == @solution if base_case?
 
-      new_test_values = @test_values.dup
-      test_value = new_test_values.pop
-
-      raise if test_value.nil?
-
-      possible_multiplication = (@solution % test_value).zero?
-      multiplication_eq = Equation.new(@solution / test_value, new_test_values)
-
-      possible_multiplication && multiplication_eq.valid?(with_concat: with_concat)
+      multiplication_eq.valid?
     end
 
-    sig { params(with_concat: T::Boolean).returns(T::Boolean) }
-    def valid_through_concatination?(with_concat: false)
-      return false unless with_concat
+    sig { returns(T::Boolean) }
+    def valid_through_concatination?
+      return false unless @check_concat
 
       return @test_values.map(&:to_s).join.to_i == @solution if base_case?
 
-      new_test_values = @test_values.dup
-      test_value = new_test_values.pop
-
-      possible_concatination = @solution.to_s.end_with?(test_value.to_s)
-      concatination_eq = Equation.new(@solution.to_s.delete_suffix(test_value.to_s).to_i, new_test_values)
-
-      possible_concatination && concatination_eq.valid?(with_concat: with_concat)
+      concatination_eq.valid?
     end
 
     sig { returns(T::Boolean) }
     def base_case?
       @test_values.length == 2
+    end
+
+    sig { returns(Equation) }
+    def addition_eq
+      new_test_values = @test_values.dup
+      test_value = new_test_values.pop
+
+      raise if test_value.nil?
+
+      Equation.new(@solution - test_value, new_test_values, check_concat: @check_concat)
+    end
+
+    sig { returns(Equation) }
+    def multiplication_eq
+      new_test_values = @test_values.dup
+      test_value = new_test_values.pop
+
+      raise if test_value.nil?
+      return InvalidEquation.create unless (@solution % test_value).zero?
+
+      Equation.new(@solution / test_value, new_test_values, check_concat: @check_concat)
+    end
+
+    sig { returns(Equation) }
+    def concatination_eq
+      new_test_values = @test_values.dup
+      test_value = new_test_values.pop
+
+      raise if test_value.nil?
+      return InvalidEquation.create unless @solution.to_s.end_with?(test_value.to_s)
+
+      Equation.new(@solution.to_s.delete_suffix(test_value.to_s).to_i, new_test_values, check_concat: @check_concat)
+    end
+  end
+
+  class InvalidEquation < Equation
+    extend T::Sig
+
+    class << self
+      extend T::Sig
+
+      sig { returns(InvalidEquation) }
+      def create
+        new(0, [])
+      end
+    end
+
+    sig { override.returns(FalseClass) }
+    def valid?
+      false
     end
   end
 end
