@@ -82,34 +82,61 @@ module Day07
 
     sig { returns(Equation) }
     def addition_eq
-      new_test_values = @test_values.dup
-      test_value = new_test_values.pop
+      new_solution = T.let(
+        ->(t) { @solution - t },
+        T.proc.params(test_value: Integer).returns(Integer)
+      )
 
-      raise if test_value.nil?
+      safety_condition = T.let(
+        ->(_) { true },
+        T.proc.params(test_value: Integer).returns(T::Boolean)
+      )
 
-      Equation.new(@solution - test_value, new_test_values, check_concat: @check_concat)
+      sub_equation(new_solution, safety_condition)
     end
 
     sig { returns(Equation) }
     def multiplication_eq
-      new_test_values = @test_values.dup
-      test_value = new_test_values.pop
+      new_solution = T.let(
+        ->(t) { @solution / t },
+        T.proc.params(test_value: Integer).returns(Integer)
+      )
 
-      raise if test_value.nil?
-      return InvalidEquation.create unless (@solution % test_value).zero?
+      safety_condition = T.let(
+        ->(t) { (@solution % t).zero? },
+        T.proc.params(test_value: Integer).returns(T::Boolean)
+      )
 
-      Equation.new(@solution / test_value, new_test_values, check_concat: @check_concat)
+      sub_equation(new_solution, safety_condition)
     end
 
     sig { returns(Equation) }
     def concatination_eq
+      new_solution = T.let(
+        ->(t) { @solution.to_s.delete_suffix(t.to_s).to_i },
+        T.proc.params(test_value: Integer).returns(Integer)
+      )
+
+      safety_condition = T.let(
+        ->(t) { @solution.to_s.end_with?(t.to_s) },
+        T.proc.params(test_value: Integer).returns(T::Boolean)
+      )
+
+      sub_equation(new_solution, safety_condition)
+    end
+
+    sig do
+      params(new_solution: T.proc.params(test_value: Integer).returns(Integer),
+             safety_condition: T.proc.params(test_value: Integer).returns(T::Boolean)).returns(Equation)
+    end
+    def sub_equation(new_solution, safety_condition)
       new_test_values = @test_values.dup
       test_value = new_test_values.pop
 
       raise if test_value.nil?
-      return InvalidEquation.create unless @solution.to_s.end_with?(test_value.to_s)
+      return InvalidEquation.create unless safety_condition.call(test_value)
 
-      Equation.new(@solution.to_s.delete_suffix(test_value.to_s).to_i, new_test_values, check_concat: @check_concat)
+      Equation.new(new_solution.call(test_value), new_test_values, check_concat: @check_concat)
     end
   end
 
